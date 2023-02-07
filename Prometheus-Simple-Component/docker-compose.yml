@@ -1,8 +1,16 @@
 version: '3.8'
+
+networks:
+  fixed_compose_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.254.249.0/24
+
 services:
   prometheus-001: &prometheus
     image: prom/prometheus:v2.24.1
-    container_name: prometheus-001
+    container_name: prometheus-001_dev
     command:
       [
         "--config.file=/etc/prometheus/prometheus.yml",
@@ -14,15 +22,19 @@ services:
         "./deployment/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml",
         "./deployment/prometheus/rules.yml:/etc/prometheus/rules.yml",
       ]
+  prometheus-002:
+    <<: *prometheus
+    container_name: prometheus-002_dev
 
-  alertmanager-001: &alertmanager 
+  alertmanager-011: &alertmanager 
     image: prom/alertmanager:v0.21.0
-    container_name: alertmanager-001
+    container_name: alertmanager-011_dev
     command:
       [
         "--config.file=/etc/alertmanager/alertmanager.yml",
         "--web.external-url=http://localhost/alertmanager",
         "--web.route-prefix=/",
+        "--cluster.peer=alertmanager-012:9094",
       ]
     volumes:
       [
@@ -30,18 +42,40 @@ services:
       ]
     ports:
       - 8093:9093
+  alertmanager-012:
+    <<: *alertmanager
+    container_name: alertmanager-012_dev
+    command:
+      [
+        "--config.file=/etc/alertmanager/alertmanager.yml",
+        "--web.external-url=http://localhost/alertmanager",
+        "--web.route-prefix=/",
+        "--cluster.peer=alertmanager-011:9094",
+      ]
+    ports:
+      - 8094:9093
+
+  node-101: &node
+    image: quay.io/prometheus/node-exporter:latest
+    container_name: node-101_dev
+    ports:
+      - 9100:9100
+    volumes:
+      - /proc:/host/proc
+      - /sys:/host/sys
+      - /:/rootfs
 
   grafana:
     image: grafana/grafana:7.3.7
-    container_name: grafana
+    container_name: grafana_dev
     volumes:
       [
         "./deployment/grafana/grafana.ini:/etc/grafana/grafana.ini",
-        "./deployment/grafana/datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml",
+        "./deployment/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml",
       ]
   nginx:
     image: nginx:1.18.0
-    container_name: nginx
+    container_name: nginx_dev
     volumes:
       [
         "./deployment/nginx/default.conf:/etc/nginx/conf.d/default.conf",
