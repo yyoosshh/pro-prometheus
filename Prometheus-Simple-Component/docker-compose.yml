@@ -60,10 +60,7 @@ services:
     container_name: node-101_dev
     ports:
       - 9100:9100
-    volumes:
-      - /proc:/host/proc
-      - /sys:/host/sys
-      - /:/rootfs
+
 
   grafana:
     image: grafana/grafana:7.3.7
